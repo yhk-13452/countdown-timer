@@ -33,7 +33,10 @@
       display: flex;
       justify-content: space-between;
       align-items: center;
-      padding: 20px 20px 10px;
+      padding-top: calc(20px + env(safe-area-inset-top));
+      padding-left: 20px;
+      padding-right: 20px;
+      padding-bottom: 10px;
     }
     h1 {
       font-size: 1.8rem;
@@ -54,6 +57,7 @@
       box-shadow: 0 2px 8px rgba(0,122,255,0.3);
       touch-action: manipulation;
       transition: background 0.2s;
+      margin-right: 5px;
     }
     .add-btn:active { background: #005bb5; }
 
@@ -333,7 +337,6 @@
       let currentCategoryId = null;
       let editingEventId = null;
 
-      // DOM elements
       const mainHeader = document.getElementById('main-header');
       const subHeader = document.getElementById('sub-header');
       const pageTitle = document.getElementById('page-title');
@@ -349,11 +352,9 @@
       const categoryEventsList = document.getElementById('category-events-list');
       const navItems = document.querySelectorAll('.nav-item');
 
-      // 分类输入区域
       const newCategoryInput = document.getElementById('new-category-input');
       const newCategoryBtn = document.getElementById('new-category-btn');
 
-      // Modals
       const eventModal = document.getElementById('event-modal');
       const eventModalTitle = document.getElementById('event-modal-title');
       const eventName = document.getElementById('event-name');
@@ -362,7 +363,6 @@
       const eventCancel = document.getElementById('event-cancel');
       const eventSave = document.getElementById('event-save');
 
-      // 加载数据
       function loadData() {
         try {
           const savedEvents = localStorage.getItem(STORAGE_EVENTS);
@@ -519,15 +519,10 @@
         return div.innerHTML;
       }
 
-      // ===== 事件处理 =====
-
-      // 添加分类（只绑定一次）
+      // 事件绑定
       newCategoryBtn.addEventListener('click', () => {
         const name = newCategoryInput.value.trim();
-        if (!name) {
-          alert('请输入分类名称');
-          return;
-        }
+        if (!name) { alert('请输入分类名称'); return; }
         categories.push({ id: generateId(), name, createdAt: Date.now() });
         saveCategories();
         updateCategorySelect();
@@ -538,29 +533,19 @@
         if (e.key === 'Enter') newCategoryBtn.click();
       });
 
-      // 全局添加按钮
       globalAddBtn.addEventListener('click', () => {
         openEventModal(null, currentPage === 'categories' ? null : undefined);
       });
       subAddBtn.addEventListener('click', () => {
-        if (currentPage === 'category-events') {
-          openEventModal(null, currentCategoryId);
-        }
+        if (currentPage === 'category-events') openEventModal(null, currentCategoryId);
       });
 
-      // 返回按钮
-      backBtn.addEventListener('click', () => {
-        switchPage('categories');
-      });
+      backBtn.addEventListener('click', () => switchPage('categories'));
 
-      // 底部导航
       navItems.forEach(btn => {
-        btn.addEventListener('click', () => {
-          switchPage(btn.dataset.page);
-        });
+        btn.addEventListener('click', () => switchPage(btn.dataset.page));
       });
 
-      // 列表点击委托
       homeList.addEventListener('click', handleListClick);
       categoryList.addEventListener('click', handleListClick);
       categoryEventsList.addEventListener('click', handleListClick);
@@ -644,7 +629,6 @@
         render();
       });
 
-      // 初始化
       loadData();
       updateCategorySelect();
       switchPage('home');
