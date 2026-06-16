@@ -1,0 +1,655 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <title>倒计时</title>
+  <link rel="manifest" href="/countdown-timer/manifest.json">
+  <script>
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('/countdown-timer/sw.js');
+    }
+  </script>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+      -webkit-tap-highlight-color: transparent;
+    }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background: #f5f5f5;
+      color: #333;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      max-width: 600px;
+      margin: 0 auto;
+    }
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 20px 20px 10px;
+    }
+    h1 {
+      font-size: 1.8rem;
+      color: #111;
+    }
+    .add-btn {
+      background: #007aff;
+      color: white;
+      border: none;
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      font-size: 1.8rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      box-shadow: 0 2px 8px rgba(0,122,255,0.3);
+      touch-action: manipulation;
+      transition: background 0.2s;
+    }
+    .add-btn:active { background: #005bb5; }
+
+    .main-content {
+      flex: 1;
+      overflow-y: auto;
+      padding: 10px 20px 20px;
+    }
+    .page {
+      display: none;
+    }
+    .page.active {
+      display: block;
+    }
+
+    .countdown-list {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+    .countdown-item {
+      background: white;
+      border-radius: 14px;
+      padding: 18px;
+      box-shadow: 0 1px 6px rgba(0,0,0,0.06);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .item-info {
+      flex: 1;
+      min-width: 0;
+    }
+    .item-name {
+      font-size: 1.2rem;
+      font-weight: 600;
+      margin-bottom: 4px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .item-date {
+      font-size: 0.9rem;
+      color: #888;
+      margin-bottom: 6px;
+    }
+    .item-countdown {
+      font-size: 1.3rem;
+      font-weight: bold;
+      color: #007aff;
+      font-family: "SF Mono", "Menlo", "Courier New", monospace;
+    }
+    .item-countdown.expired { color: #ff3b30; }
+    .item-actions {
+      display: flex;
+      gap: 8px;
+      margin-left: 10px;
+    }
+    .action-btn {
+      background: none;
+      border: none;
+      font-size: 1.2rem;
+      color: #888;
+      cursor: pointer;
+      padding: 6px;
+      border-radius: 6px;
+    }
+    .action-btn:active { background: #f0f0f0; }
+    .delete-btn:active { color: #ff3b30; }
+    .edit-btn:active { color: #007aff; }
+
+    .category-list {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .category-item {
+      background: white;
+      border-radius: 12px;
+      padding: 16px 18px;
+      box-shadow: 0 1px 6px rgba(0,0,0,0.06);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      cursor: pointer;
+    }
+    .category-item:active { background: #f0f0f0; }
+    .category-name {
+      font-size: 1.2rem;
+      font-weight: 600;
+    }
+    .category-count {
+      font-size: 0.9rem;
+      color: #888;
+    }
+    .category-delete {
+      background: none;
+      border: none;
+      font-size: 1.2rem;
+      color: #ccc;
+      padding: 6px;
+      cursor: pointer;
+      margin-left: 10px;
+    }
+    .category-delete:active { color: #ff3b30; }
+
+    .back-btn {
+      background: none;
+      border: none;
+      font-size: 1.4rem;
+      color: #007aff;
+      cursor: pointer;
+      padding: 4px 8px;
+      margin-right: 10px;
+    }
+
+    .add-category-row {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 20px;
+    }
+    .add-category-row input {
+      flex: 1;
+      padding: 10px;
+      border: 1px solid #ddd;
+      border-radius: 10px;
+      font-size: 1rem;
+    }
+    .add-category-row button {
+      background: #007aff;
+      color: white;
+      border: none;
+      border-radius: 10px;
+      padding: 10px 16px;
+      font-weight: bold;
+      cursor: pointer;
+    }
+
+    .bottom-nav {
+      display: flex;
+      border-top: 1px solid #ddd;
+      background: white;
+      padding-bottom: env(safe-area-inset-bottom);
+    }
+    .nav-item {
+      flex: 1;
+      text-align: center;
+      padding: 12px 0;
+      font-size: 1rem;
+      font-weight: 500;
+      color: #888;
+      cursor: pointer;
+      border: none;
+      background: none;
+    }
+    .nav-item.active {
+      color: #007aff;
+      font-weight: 600;
+    }
+
+    .modal {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0,0,0,0.4);
+      justify-content: center;
+      align-items: center;
+      z-index: 100;
+    }
+    .modal.show { display: flex; }
+    .modal-content {
+      background: white;
+      border-radius: 16px;
+      padding: 24px;
+      width: 90%;
+      max-width: 400px;
+      box-shadow: 0 8px 30px rgba(0,0,0,0.2);
+    }
+    .modal h2 { margin-bottom: 16px; font-size: 1.4rem; }
+    .form-group { margin-bottom: 14px; }
+    .form-group label { display: block; font-size: 0.9rem; color: #555; margin-bottom: 4px; }
+    .form-group input, .form-group select {
+      width: 100%;
+      padding: 12px;
+      border: 1px solid #ddd;
+      border-radius: 10px;
+      font-size: 1rem;
+    }
+    .form-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 10px;
+      margin-top: 20px;
+    }
+    .form-actions button {
+      padding: 10px 20px;
+      border-radius: 10px;
+      border: none;
+      font-weight: bold;
+      cursor: pointer;
+    }
+    .cancel-btn { background: #e5e5ea; color: #333; }
+    .save-btn { background: #007aff; color: white; }
+    .empty-state { text-align: center; color: #aaa; margin-top: 60px; font-size: 1.2rem; }
+  </style>
+</head>
+<body>
+  <div class="header" id="main-header">
+    <h1 id="page-title">⏳ 倒计时</h1>
+    <button class="add-btn" id="global-add-btn">+</button>
+  </div>
+  <div class="header" id="sub-header" style="display:none;">
+    <button class="back-btn" id="back-btn">← 返回</button>
+    <h1 id="sub-title" style="font-size:1.4rem;"></h1>
+    <button class="add-btn" id="sub-add-btn">+</button>
+  </div>
+
+  <div class="main-content">
+    <div id="page-home" class="page active">
+      <ul class="countdown-list" id="home-list"></ul>
+    </div>
+    <div id="page-categories" class="page">
+      <div class="add-category-row">
+        <input type="text" id="new-category-input" placeholder="新分类名称" maxlength="20">
+        <button id="new-category-btn">添加</button>
+      </div>
+      <ul class="category-list" id="category-list"></ul>
+    </div>
+    <div id="page-category-events" class="page">
+      <ul class="countdown-list" id="category-events-list"></ul>
+    </div>
+  </div>
+
+  <div class="bottom-nav">
+    <button class="nav-item active" data-page="home">首页</button>
+    <button class="nav-item" data-page="categories">倒数本</button>
+  </div>
+
+  <!-- 事件编辑弹窗 -->
+  <div class="modal" id="event-modal">
+    <div class="modal-content">
+      <h2 id="event-modal-title">添加倒计时</h2>
+      <div class="form-group">
+        <label>名称</label>
+        <input type="text" id="event-name" placeholder="例如：生日" maxlength="30">
+      </div>
+      <div class="form-group">
+        <label>目标日期</label>
+        <input type="date" id="event-date">
+      </div>
+      <div class="form-group">
+        <label>所属分类</label>
+        <select id="event-category">
+          <option value="">无分类</option>
+        </select>
+      </div>
+      <div class="form-actions">
+        <button class="cancel-btn" id="event-cancel">取消</button>
+        <button class="save-btn" id="event-save">保存</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    (function() {
+      const STORAGE_EVENTS = 'countdown_events';
+      const STORAGE_CATEGORIES = 'countdown_categories';
+
+      let events = [];
+      let categories = [];
+      let currentPage = 'home';
+      let currentCategoryId = null;
+      let editingEventId = null;
+
+      // DOM elements
+      const mainHeader = document.getElementById('main-header');
+      const subHeader = document.getElementById('sub-header');
+      const pageTitle = document.getElementById('page-title');
+      const subTitle = document.getElementById('sub-title');
+      const backBtn = document.getElementById('back-btn');
+      const globalAddBtn = document.getElementById('global-add-btn');
+      const subAddBtn = document.getElementById('sub-add-btn');
+      const pageHome = document.getElementById('page-home');
+      const pageCategories = document.getElementById('page-categories');
+      const pageCategoryEvents = document.getElementById('page-category-events');
+      const homeList = document.getElementById('home-list');
+      const categoryList = document.getElementById('category-list');
+      const categoryEventsList = document.getElementById('category-events-list');
+      const navItems = document.querySelectorAll('.nav-item');
+
+      // 分类输入区域
+      const newCategoryInput = document.getElementById('new-category-input');
+      const newCategoryBtn = document.getElementById('new-category-btn');
+
+      // Modals
+      const eventModal = document.getElementById('event-modal');
+      const eventModalTitle = document.getElementById('event-modal-title');
+      const eventName = document.getElementById('event-name');
+      const eventDate = document.getElementById('event-date');
+      const eventCategory = document.getElementById('event-category');
+      const eventCancel = document.getElementById('event-cancel');
+      const eventSave = document.getElementById('event-save');
+
+      // 加载数据
+      function loadData() {
+        try {
+          const savedEvents = localStorage.getItem(STORAGE_EVENTS);
+          if (savedEvents) events = JSON.parse(savedEvents);
+          else events = [];
+        } catch (e) { events = []; }
+        try {
+          const savedCategories = localStorage.getItem(STORAGE_CATEGORIES);
+          if (savedCategories) categories = JSON.parse(savedCategories);
+          else categories = [];
+        } catch (e) { categories = []; }
+      }
+      function saveEvents() {
+        localStorage.setItem(STORAGE_EVENTS, JSON.stringify(events));
+      }
+      function saveCategories() {
+        localStorage.setItem(STORAGE_CATEGORIES, JSON.stringify(categories));
+      }
+
+      function generateId() {
+        return Date.now().toString(36) + Math.random().toString(36).substr(2);
+      }
+
+      function getRemaining(targetDate) {
+        const now = new Date().getTime();
+        const target = new Date(targetDate).getTime();
+        const diff = target - now;
+        const absDiff = Math.abs(diff);
+        const totalSeconds = Math.floor(absDiff / 1000);
+        const days = Math.floor(totalSeconds / (3600 * 24));
+        const hours = Math.floor((totalSeconds % (3600 * 24)) / 3600);
+        const minutes = Math.floor((totalSeconds % 3600) / 60);
+        const seconds = totalSeconds % 60;
+        let text = '';
+        if (days > 0) text += `${days}天 `;
+        text += `${hours.toString().padStart(2,'0')}:${minutes.toString().padStart(2,'0')}:${seconds.toString().padStart(2,'0')}`;
+        if (diff > 0) return { expired: false, text: '剩余 ' + text };
+        else return { expired: true, text: '已过 ' + text };
+      }
+
+      function sortByDate(arr) {
+        return [...arr].sort((a, b) => new Date(a.targetDate) - new Date(b.targetDate));
+      }
+
+      function updateCategorySelect() {
+        eventCategory.innerHTML = '<option value="">无分类</option>';
+        categories.forEach(cat => {
+          const opt = document.createElement('option');
+          opt.value = cat.id;
+          opt.textContent = cat.name;
+          eventCategory.appendChild(opt);
+        });
+      }
+
+      function switchPage(page, categoryId = null) {
+        currentPage = page;
+        currentCategoryId = categoryId;
+        navItems.forEach(btn => {
+          btn.classList.toggle('active', btn.dataset.page === page || (page === 'category-events' && btn.dataset.page === 'categories'));
+        });
+        if (page === 'home' || page === 'categories') {
+          mainHeader.style.display = 'flex';
+          subHeader.style.display = 'none';
+          pageTitle.textContent = page === 'home' ? '⏳ 倒计时' : '📚 倒数本';
+        } else {
+          mainHeader.style.display = 'none';
+          subHeader.style.display = 'flex';
+          const cat = categories.find(c => c.id === categoryId);
+          subTitle.textContent = cat ? cat.name : '倒计时';
+        }
+        pageHome.classList.toggle('active', page === 'home');
+        pageCategories.classList.toggle('active', page === 'categories');
+        pageCategoryEvents.classList.toggle('active', page === 'category-events');
+        render();
+      }
+
+      function render() {
+        if (currentPage === 'home') renderHome();
+        else if (currentPage === 'categories') renderCategories();
+        else if (currentPage === 'category-events') renderCategoryEvents();
+      }
+
+      function renderHome() {
+        if (events.length === 0) {
+          homeList.innerHTML = '<div class="empty-state">还没有倒计时，点右上角 + 添加</div>';
+          return;
+        }
+        const sorted = sortByDate(events);
+        homeList.innerHTML = sorted.map(item => {
+          const remaining = getRemaining(item.targetDate);
+          const cat = categories.find(c => c.id === item.categoryId);
+          const catName = cat ? ` · ${cat.name}` : '';
+          return `
+            <li class="countdown-item">
+              <div class="item-info">
+                <div class="item-name">${escapeHtml(item.name)}${catName}</div>
+                <div class="item-date">${item.targetDate}</div>
+                <div class="item-countdown${remaining.expired ? ' expired' : ''}">${remaining.text}</div>
+              </div>
+              <div class="item-actions">
+                <button class="action-btn edit-btn" data-action="edit-event" data-id="${item.id}">✏️</button>
+                <button class="action-btn delete-btn" data-action="delete-event" data-id="${item.id}">🗑️</button>
+              </div>
+            </li>
+          `;
+        }).join('');
+      }
+
+      function renderCategories() {
+        if (categories.length === 0) {
+          categoryList.innerHTML = '<div class="empty-state">还没有分类，在上方输入框添加</div>';
+          return;
+        }
+        categoryList.innerHTML = categories.map(cat => {
+          const count = events.filter(e => e.categoryId === cat.id).length;
+          return `
+            <li class="category-item" data-category-id="${cat.id}">
+              <span class="category-name">${escapeHtml(cat.name)}</span>
+              <span class="category-count">${count} 项</span>
+              <button class="category-delete" data-action="delete-category" data-id="${cat.id}">🗑️</button>
+            </li>
+          `;
+        }).join('');
+      }
+
+      function renderCategoryEvents() {
+        const filtered = events.filter(e => e.categoryId === currentCategoryId);
+        if (filtered.length === 0) {
+          categoryEventsList.innerHTML = '<div class="empty-state">该分类下暂无倒计时</div>';
+          return;
+        }
+        const sorted = sortByDate(filtered);
+        categoryEventsList.innerHTML = sorted.map(item => {
+          const remaining = getRemaining(item.targetDate);
+          return `
+            <li class="countdown-item">
+              <div class="item-info">
+                <div class="item-name">${escapeHtml(item.name)}</div>
+                <div class="item-date">${item.targetDate}</div>
+                <div class="item-countdown${remaining.expired ? ' expired' : ''}">${remaining.text}</div>
+              </div>
+              <div class="item-actions">
+                <button class="action-btn edit-btn" data-action="edit-event" data-id="${item.id}">✏️</button>
+                <button class="action-btn delete-btn" data-action="delete-event" data-id="${item.id}">🗑️</button>
+              </div>
+            </li>
+          `;
+        }).join('');
+      }
+
+      function escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+      }
+
+      // ===== 事件处理 =====
+
+      // 添加分类（只绑定一次）
+      newCategoryBtn.addEventListener('click', () => {
+        const name = newCategoryInput.value.trim();
+        if (!name) {
+          alert('请输入分类名称');
+          return;
+        }
+        categories.push({ id: generateId(), name, createdAt: Date.now() });
+        saveCategories();
+        updateCategorySelect();
+        newCategoryInput.value = '';
+        render();
+      });
+      newCategoryInput.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') newCategoryBtn.click();
+      });
+
+      // 全局添加按钮
+      globalAddBtn.addEventListener('click', () => {
+        openEventModal(null, currentPage === 'categories' ? null : undefined);
+      });
+      subAddBtn.addEventListener('click', () => {
+        if (currentPage === 'category-events') {
+          openEventModal(null, currentCategoryId);
+        }
+      });
+
+      // 返回按钮
+      backBtn.addEventListener('click', () => {
+        switchPage('categories');
+      });
+
+      // 底部导航
+      navItems.forEach(btn => {
+        btn.addEventListener('click', () => {
+          switchPage(btn.dataset.page);
+        });
+      });
+
+      // 列表点击委托
+      homeList.addEventListener('click', handleListClick);
+      categoryList.addEventListener('click', handleListClick);
+      categoryEventsList.addEventListener('click', handleListClick);
+
+      function handleListClick(e) {
+        const btn = e.target.closest('button');
+        const li = e.target.closest('.category-item');
+        if (btn) {
+          const action = btn.dataset.action;
+          const id = btn.dataset.id;
+          if (action === 'edit-event') {
+            const ev = events.find(e => e.id === id);
+            if (ev) openEventModal(ev, ev.categoryId);
+          } else if (action === 'delete-event') {
+            if (confirm('确定要删除这个倒计时吗？')) {
+              events = events.filter(e => e.id !== id);
+              saveEvents();
+              render();
+            }
+          } else if (action === 'delete-category') {
+            if (confirm('删除分类会同时删除该分类下的所有倒计时，确定吗？')) {
+              events = events.filter(e => e.categoryId !== id);
+              categories = categories.filter(c => c.id !== id);
+              saveEvents();
+              saveCategories();
+              updateCategorySelect();
+              render();
+            }
+          }
+          e.stopPropagation();
+          return;
+        }
+        if (li && li.classList.contains('category-item')) {
+          const categoryId = li.dataset.categoryId;
+          if (categoryId) switchPage('category-events', categoryId);
+        }
+      }
+
+      function openEventModal(event = null, defaultCategoryId = undefined) {
+        editingEventId = event ? event.id : null;
+        eventModalTitle.textContent = event ? '编辑倒计时' : '添加倒计时';
+        eventName.value = event ? event.name : '';
+        eventDate.value = event ? event.targetDate : '';
+        updateCategorySelect();
+        if (event) {
+          eventCategory.value = event.categoryId || '';
+        } else if (defaultCategoryId !== undefined) {
+          eventCategory.value = defaultCategoryId || '';
+        } else {
+          eventCategory.value = '';
+        }
+        eventModal.classList.add('show');
+        eventName.focus();
+      }
+
+      eventCancel.addEventListener('click', () => eventModal.classList.remove('show'));
+      eventSave.addEventListener('click', () => {
+        const name = eventName.value.trim();
+        const date = eventDate.value;
+        const catId = eventCategory.value || null;
+        if (!name) { alert('请输入名称'); return; }
+        if (!date) { alert('请选择日期'); return; }
+        if (editingEventId) {
+          const ev = events.find(e => e.id === editingEventId);
+          if (ev) {
+            ev.name = name;
+            ev.targetDate = date;
+            ev.categoryId = catId;
+          }
+        } else {
+          events.push({
+            id: generateId(),
+            name,
+            targetDate: date,
+            categoryId: catId,
+            createdAt: Date.now()
+          });
+        }
+        saveEvents();
+        eventModal.classList.remove('show');
+        render();
+      });
+
+      // 初始化
+      loadData();
+      updateCategorySelect();
+      switchPage('home');
+      setInterval(render, 1000);
+    })();
+  </script>
+</body>
+</html>
